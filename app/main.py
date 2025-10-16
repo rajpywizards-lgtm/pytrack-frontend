@@ -1,17 +1,29 @@
-# This is a sample Python script.
+# main.py
+import sys
+from PySide6.QtWidgets import QApplication
+from ui.login_window import LoginWindow
+from ui.dashboard_window import DashboardWindow
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+class AppController:
+    def __init__(self):
+        self.app = QApplication(sys.argv)
+        self.login_window = None
+        self.dashboard_window = None
 
+    def show_login(self):
+        self.dashboard_window = None
+        self.login_window = LoginWindow(self.show_dashboard)
+        self.login_window.show()
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+    def show_dashboard(self):
+        self.login_window.close()
+        self.dashboard_window = DashboardWindow(self.show_login)
+        self.dashboard_window.show()
 
+    def run(self):
+        self.show_login()
+        sys.exit(self.app.exec())
 
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    controller = AppController()
+    controller.run()
