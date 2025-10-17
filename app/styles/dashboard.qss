@@ -1,0 +1,78 @@
+/* -------- GLOBAL -------- */
+QScrollArea {
+    border: none;
+    background: transparent;
+}
+
+QWidget {
+    background-color: #1e1e1e;
+    color: #f0f0f0;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QLabel {
+    background: none;
+}
+
+QChartView {
+    background: transparent;
+}
+
+QChart {
+    color: #ffffff;
+}
+
+/* -------- TOP BAR -------- */
+#TopBar {
+        background-color: #9c27b0;
+        border-bottom: 2px solid #7b1fa2;
+}
+#UserLabel {
+    color: white;
+    font-weight: 500;
+    margin-right: 10px;
+    background: none;
+}
+#LogoutButton {
+    background-color: #7b1fa2;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    padding: 6px 10px;
+}
+#LogoutButton:hover {
+    background-color: #ba68c8;
+}
+
+/* -------- SECTIONS -------- */
+#TimesheetFrame {
+    background-color: #2b2b2b;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+#SectionLabel {
+    font-size: 15px;
+    font-weight: 600;
+    color: #d1a9f6;
+    margin-bottom: 6px;
+}
+
+#SectionLabel {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+/* Placeholder chart area */
+#TimesheetChart {
+    background-color: #444;
+    border-radius: 4px;
+    min-height: 80px;
+}
+
+#TasksFrame {
+    background-color: #2b2b2b;
+    border-radius: 6px;
+    padding: 10px;
+}

@@ -14,7 +14,7 @@ QLineEdit {
     border-radius: 6px;
     border: 1px solid #555;
     color: white;
-    min-width: 240px;
+    min-width: 210px;
 }
 
 QLineEdit:focus {

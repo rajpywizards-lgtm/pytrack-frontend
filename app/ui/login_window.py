@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton, QHBoxLayout,
-    QVBoxLayout, QFrame, QMessageBox
+    QVBoxLayout, QFrame, QMessageBox, QApplication
 )
 from PySide6.QtGui import QPixmap, QGuiApplication
 from PySide6.QtCore import Qt
@@ -13,12 +13,18 @@ class LoginWindow(QWidget):
     def __init__(self, on_login_success):
         super().__init__()
         self.on_login_success = on_login_success
-
         self.setWindowTitle("PyTrack - Login")
-        self.setFixedSize(900, 500)
+
+        # ----------- SCREEN CENTERING LOGIC -----------
+        screen = QApplication.primaryScreen().geometry()
+        width = int(screen.width() * 0.53)
+        height = int(screen.height() * 0.53)
+        x = int((screen.width() - width) / 2)
+        y = int((screen.height() - height) / 2)
+        self.setGeometry(x, y, width, height)
 
         # Load QSS
-        qss_path = os.path.join(os.path.dirname(__file__), "..", "styles", "login_window.qss")
+        qss_path = os.path.join(os.path.dirname(__file__), "..", "styles", "login.qss")
         with open(qss_path, "r") as f:
             self.setStyleSheet(f.read())
 
@@ -79,7 +85,7 @@ class LoginWindow(QWidget):
             bg_label = QLabel()
             pixmap = QPixmap(bg_path)
             bg_label.setPixmap(
-                pixmap.scaled(450, 500, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                pixmap.scaled(300, int(screen.height() * 0.53), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
             )
             bg_label.setAlignment(Qt.AlignCenter)
             right_layout.addWidget(bg_label)
