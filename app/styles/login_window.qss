@@ -1,0 +1,47 @@
+/* Remove gradients, keep flat neutral colors */
+#LeftPanel {
+    background-color: #1b1b1b;
+}
+
+#RightPanel {
+    background-color: transparent;
+}
+
+/* Input fields wider, smoother */
+QLineEdit {
+    padding: 10px 12px;
+    background-color: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #555;
+    color: white;
+    min-width: 240px;
+}
+
+QLineEdit:focus {
+    border: 1px solid #a74cf2;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #a74cf2;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-weight: bold;
+    color: white;
+    min-width: 120px;
+}
+QPushButton:hover {
+    background-color: #b96bff;
+}
+
+/* Forgot button */
+QPushButton#ForgotButton {
+    background: none;
+    color: #888;
+    font-weight: normal;
+    font-size: 12px;
+}
+QPushButton#ForgotButton:hover {
+    color: #ccc;
+}
