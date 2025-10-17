@@ -54,7 +54,7 @@ class DashboardWindow(QWidget):
         self.refresh_btn.clicked.connect(self.load_tasks)
         self.logout_btn.clicked.connect(self.logout_user)
 
-        self.load_tasks()  # auto-load on open
+        self.load_tasks()
 
     def load_tasks(self):
         """Fetch and display tasks."""

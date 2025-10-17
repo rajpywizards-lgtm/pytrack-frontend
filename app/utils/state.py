@@ -4,7 +4,7 @@ class AppState:
     token = None
 
     @classmethod
-    def set_user(cls, email, role, token=None):
+    def set_user(cls, email, role, token):
         cls.user_email = email
         cls.user_role = role
         cls.token = token
