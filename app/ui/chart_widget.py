@@ -1,3 +1,4 @@
+from typing import List, Tuple
 from PySide6.QtCharts import (
     QChart, QChartView, QBarSet, QHorizontalStackedBarSeries,
     QValueAxis
@@ -7,68 +8,119 @@ from PySide6.QtGui import QColor, QPainter, QFont
 from PySide6.QtCore import Qt, QMargins
 
 
-class TimesheetChartQt(QWidget):
-    """Horizontal stacked bar (bullet timeline) showing task durations."""
-    def __init__(self):
-        super().__init__()
+TimelineItem = Tuple[str, float, str]  # (label, hours, hex-color)
 
-        # ---- Fake static daily timeline ----
-        # Format: (Task, Duration (hrs), Color)
-        self.timeline = [
-            ("Emails",   0.5, "#9c27b0"),
+
+class TimesheetChartQt(QWidget):
+    """Horizontal stacked bar (timeline) showing task durations.
+
+    Use set_timeline([...]) to provide live data:
+      chart.set_timeline([("Emails", 0.5, "#9c27b0"), ...])
+    Then call chart.refresh() or chart.refresh() will be called automatically.
+    """
+
+    def __init__(self, timeline: List[TimelineItem] | None = None, parent=None):
+        super().__init__(parent)
+
+        # default static timeline (keeps backwards compatibility)
+        self.timeline: List[TimelineItem] = timeline or [
+            ("Emails", 0.5, "#9c27b0"),
             ("Meetings", 1.5, "#f48fb1"),
-            ("Coding",   3.0, "#81c784"),
-            ("Break",    0.5, "#64b5f6"),
-            ("Reports",  1.0, "#f9d976"),
+            ("Coding", 3.0, "#81c784"),
+            ("Break", 0.5, "#64b5f6"),
+            ("Reports", 1.0, "#f9d976"),
             ("Marketing", 1.0, "#f8f276"),
         ]
 
-        # ---- Create stacked bar ----
+        # create container widgets
+        self._chart = QChart()
+        self._chart_view = QChartView(self._chart)
+        self._chart_view.setRenderHint(QPainter.Antialiasing)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._chart_view)
+
+        # initial render
+        self.refresh()
+
+    # -----------------------
+    # Public API
+    # -----------------------
+    def set_timeline(self, items: List[TimelineItem]) -> None:
+        """Replace timeline data and refresh chart."""
+        self.timeline = items or []
+        self.refresh()
+
+    def refresh(self) -> None:
+        """Rebuild chart from self.timeline (idempotent)."""
+        self._chart.removeAllSeries()
+        # Clear axes (simpler approach: create new chart object)
+        self._chart = QChart()
+        self._chart_view.setChart(self._chart)
+
+        total_hours = sum(max(0.0, float(d)) for _, d, _ in self.timeline)
+
         series = QHorizontalStackedBarSeries()
+
+        # If there are no items, show empty chart with axis range 0..1
+        if not self.timeline:
+            total_hours = 1.0
+            axisX_range = 1.0
+        else:
+            axisX_range = total_hours if total_hours > 0 else 1.0
 
         for task, duration, color in self.timeline:
             bar = QBarSet(task)
-            bar.append(duration)
-            bar.setColor(QColor(color))
-            bar.setLabelColor(Qt.white)
+            # QBarSet expects numeric values (one per category). We append a single value.
+            try:
+                bar.append(float(duration))
+            except Exception:
+                bar.append(0.0)
+            try:
+                bar.setColor(QColor(color))
+            except Exception:
+                # fallback to a neutral color
+                bar.setColor(QColor("#888888"))
+            # label color (if supported by the platform) — safe to call
+            try:
+                bar.setLabelColor(Qt.white)
+            except Exception:
+                pass
             series.append(bar)
 
-        chart = QChart()
-        chart.addSeries(series)
-        chart.setTitle("Today's Work Timeline")
-        chart.setAnimationOptions(QChart.SeriesAnimations)
-        chart.setBackgroundVisible(False)
-        chart.setMargins(QMargins(0, 0, 0, 0))
-        chart.legend().setVisible(True)
-        chart.legend().setAlignment(Qt.AlignBottom)
+        self._chart.addSeries(series)
+        self._chart.setTitle("Today's Work Timeline")
+        self._chart.setAnimationOptions(QChart.SeriesAnimations)
+        self._chart.setBackgroundVisible(False)
+        self._chart.setMargins(QMargins(0, 0, 0, 0))
 
-        # ✅ Make title and legend text white
-        chart.setTitleBrush(QColor("#ffffff"))
-        chart.setTitleFont(QFont("Segoe UI", 11, QFont.Bold))
-
-        legend = chart.legend()
+        # Title & legend styling
+        self._chart.setTitleBrush(QColor("#ffffff"))
+        self._chart.setTitleFont(QFont("Segoe UI", 11, QFont.Bold))
+        legend = self._chart.legend()
+        legend.setVisible(True)
+        legend.setAlignment(Qt.AlignBottom)
         legend.setLabelColor(QColor("#ffffff"))
         legend.setFont(QFont("Segoe UI", 9))
 
         # ---- Axes ----
-        # X-axis: total hours in the day (0–8 for simplicity)
         axisX = QValueAxis()
-        axisX.setRange(0, sum(d for _, d, _ in self.timeline))
-        axisX.setLabelFormat("%d hr")
+        axisX.setRange(0, axisX_range)
+        # Label format: show integer hours when possible, else floats with 1 decimal
+        if axisX_range.is_integer():
+            axisX.setLabelFormat("%d")
+        else:
+            axisX.setLabelFormat("%.1f")
         axisX.setTitleText("Time (hours)")
-        chart.addAxis(axisX, Qt.AlignBottom)
+        self._chart.addAxis(axisX, Qt.AlignBottom)
         series.attachAxis(axisX)
 
-        # Y-axis hidden (only one stacked bar)
+        # Y-axis hidden (single category)
         axisY = QValueAxis()
         axisY.setVisible(False)
-        chart.addAxis(axisY, Qt.AlignLeft)
+        self._chart.addAxis(axisY, Qt.AlignLeft)
         series.attachAxis(axisY)
 
-        # ---- Chart View ----
-        chart_view = QChartView(chart)
-        chart_view.setRenderHint(QPainter.Antialiasing)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(chart_view)
+        # set chart object on view
+        self._chart_view.setChart(self._chart)

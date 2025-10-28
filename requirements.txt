@@ -1,3 +1,6 @@
+pillow
+mss
+supabase
 utils
 requests
 python-dotenv

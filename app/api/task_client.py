@@ -1,39 +1,27 @@
-import os
-import requests
-from dotenv import load_dotenv
-from utils.state import AppState
+# app/api/task_client.py
+from typing import Dict, Any
+from app.api._http import api_get
+from app.utils.state import AppState
 
-load_dotenv()
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+DEFAULT_TIMEOUT = 10
 
-def get_my_tasks():
-    """Fetch the current user's tasks from the backend."""
-    token = AppState.token
-    if not token:
-        return {"success": False, "error": "No auth token found"}
 
-    headers = {"Authorization": f"Bearer {token}"}
+def get_my_tasks(timeout: int = DEFAULT_TIMEOUT) -> Dict[str, Any]:
+    """
+    Fetch tasks assigned to the currently logged-in user.
+    Returns a normalized dict:
+      { "success": bool, "data": [...], "error": "message" }
+    """
     try:
-        res = requests.get(f"{API_BASE_URL}/task/my-tasks", headers=headers)
-        if res.status_code != 200:
-            return {"success": False, "error": f"{res.status_code}: {res.text}"}
-
-        data = res.json()
-
-        # Support multiple possible response formats
-        if isinstance(data, dict):
-            if "tasks" in data:
-                tasks = data["tasks"]
-            elif "data" in data and isinstance(data["data"], list):
-                tasks = data["data"]
-            else:
-                tasks = []
-        elif isinstance(data, list):
-            tasks = data
-        else:
-            tasks = []
-
-        return {"success": True, "data": tasks}
-
+        resp = api_get("/task/my-tasks", timeout=timeout)
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"success": True, "data": data.get("tasks", []), "count": data.get("count", 0)}
+        # if api_get cleared auth on 401, AppState will be reset — surface that to UI
+        try:
+            body = resp.json()
+        except Exception:
+            body = resp.text
+        return {"success": False, "error": body}
     except Exception as e:
         return {"success": False, "error": str(e)}

@@ -1,3 +1,4 @@
+# app/ui/login_window.py
 from PySide6.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton, QHBoxLayout,
     QVBoxLayout, QFrame, QMessageBox, QApplication
@@ -5,8 +6,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QGuiApplication
 from PySide6.QtCore import Qt
 import os
-from api.auth_client import login_user
-from utils.state import AppState
+
+# use our frontend clients and state
+from app.api.auth_client import login_user, fetch_user_profile
+from app.utils.state import AppState
 
 
 class LoginWindow(QWidget):
@@ -23,10 +26,14 @@ class LoginWindow(QWidget):
         y = int((screen.height() - height) / 2)
         self.setGeometry(x, y, width, height)
 
-        # Load QSS
+        # Load QSS safely (fall back if file missing)
         qss_path = os.path.join(os.path.dirname(__file__), "..", "styles", "login.qss")
-        with open(qss_path, "r") as f:
-            self.setStyleSheet(f.read())
+        try:
+            with open(qss_path, "r", encoding="utf-8") as f:
+                self.setStyleSheet(f.read())
+        except Exception:
+            # ignore styling errors, app still works
+            pass
 
         # ---------------- MAIN LAYOUT ----------------
         main_layout = QHBoxLayout(self)
@@ -56,7 +63,7 @@ class LoginWindow(QWidget):
         # --- Form elements ---
         self.email_input = QLineEdit()
         self.email_input.setPlaceholderText("Company Email")
-        self.email_input.setFixedWidth(280)  # widen input field
+        self.email_input.setFixedWidth(280)
 
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Password")
@@ -84,6 +91,7 @@ class LoginWindow(QWidget):
         if os.path.exists(bg_path):
             bg_label = QLabel()
             pixmap = QPixmap(bg_path)
+            # Fit vertically, allow cropping by KeepAspectRatioByExpanding
             bg_label.setPixmap(
                 pixmap.scaled(300, int(screen.height() * 0.53), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
             )
@@ -104,42 +112,59 @@ class LoginWindow(QWidget):
             QMessageBox.warning(self, "Missing Info", "Please enter your email and password.")
             return
 
-        # Disable login button during request
+        # disable UI while we attempt login
         self.login_btn.setEnabled(False)
         self.login_btn.setText("Logging in...")
 
         try:
             QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+            # login_user persists tokens into AppState and returns structured result
             res = login_user(email, password)
-            if not res["success"]:
-                QMessageBox.critical(self, "Login Failed", res["error"])
-                self.login_btn.setEnabled(True)
-                self.login_btn.setText("Login")
-                return
             QGuiApplication.restoreOverrideCursor()
 
-            data = res["data"]
-            token = data.get("access_token")
-            user = data.get("user", {})
-            role = user.get("role", "employee")
-
-            if not token:
-                QMessageBox.critical(self, "Error", "No token received from server.")
-                self.login_btn.setEnabled(True)
-                self.login_btn.setText("Login")
+            if res.get("status") != "success":
+                # show server-provided error when available
+                msg = res.get("message") or "Invalid email or password."
+                QMessageBox.critical(self, "Login Failed", str(msg))
                 return
 
-            # Save user data to global state
-            AppState.set_user(email, role, token)
+            # At this point AppState has tokens saved already by login_user.
+            # Fetch profile to obtain authoritative user id (and possibly role)
+            prof = fetch_user_profile()
+            if prof.get("status") != "success":
+                # profile fetch failed; still proceed but warn user
+                # clear auth to be safe
+                AppState.clear_auth()
+                AppState.clear()
+                QMessageBox.critical(self, "Error", "Failed to fetch user profile after login.")
+                return
 
-            # 🟢 Go straight to dashboard (no confirmation popup)
-            self.on_login_success()
+            # profile payload expected: {"status":"success","profile": {"user": {...}} } or {"status":"success","profile": {...}}
+            profile_data = prof.get("profile") or {}
+            user_obj = profile_data.get("user") if isinstance(profile_data, dict) else None
 
+            # Normalize user_id/email
+            if user_obj:
+                user_id = user_obj.get("id") or user_obj.get("user_id")
+                user_email = user_obj.get("email") or AppState.get_user_email()
+            else:
+                # fallback if profile returned direct keys or different shape
+                user_id = profile_data.get("id") or None
+                user_email = profile_data.get("email") or AppState.get_user_email()
+
+            # Set runtime user fields (role unknown from this endpoint unless returned)
+            role = profile_data.get("role") if isinstance(profile_data, dict) else None
+            AppState.set_user(user_email, role, AppState.get_access_token(), user_id)
+
+            # Call callback to transition to main app
+            try:
+                self.on_login_success()
+            except Exception:
+                # swallow UI callback errors but inform user
+                QMessageBox.information(self, "Logged In", "Login successful, but could not open dashboard.")
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
-
         finally:
-            # Always reset button state
+            QGuiApplication.restoreOverrideCursor()
             self.login_btn.setEnabled(True)
             self.login_btn.setText("Login")
-
